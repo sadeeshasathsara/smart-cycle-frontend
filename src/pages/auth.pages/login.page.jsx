@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Lock, Mail, Recycle, Shield, Leaf, Clock } from "lucide-react";
+import axios from "axios";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -20,46 +21,50 @@ const LoginPage = () => {
   }; */
 
   const handleLogin = async (e) => {
-  const baseURL = import.meta.env.SMARTCYCLE_BACKEND_URL || "http://localhost:8080";
-  e.preventDefault();
-  setIsLoading(true);
+    e.preventDefault();
+    setIsLoading(true);
 
-  try {
-    const response = await fetch(`${baseURL}/api/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    const baseURL =
+      import.meta.env.SMARTCYCLE_BACKEND_URL || "http://localhost:8080";
 
-    const result = await response.json();
+    try {
+      const response = await axios.post(
+        `${baseURL}/api/auth/login`,
+        { email, password },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true, // ✅ needed for cookies
+        }
+      );
 
-    if (response.ok && result.success) {
-      console.log("Login successful:", result.data);
+      const result = response.data; // ✅ Axios already parses JSON
 
-      // Optionally save user data to localStorage/sessionStorage
-      localStorage.setItem("user", JSON.stringify(result.data));
+      if (response.status === 200 && result.success) {
+        console.log("Login successful:", result.data);
 
-      // Redirect based on role
-      if (result.data.role === "resident") {
-        window.location.href = "/v1/resident";
-      } else if (result.data.role === "personnel") {
-        window.location.href = "/v1/personnel";
+        // Save user data
+        localStorage.setItem("user", JSON.stringify(result.data));
+
+        // Redirect by role
+        if (result.data.role === "resident") {
+          window.location.href = "/v1/resident";
+        } else if (result.data.role === "personnel") {
+          window.location.href = "/v1/personnel";
+        } else {
+          alert("Unknown role, cannot redirect");
+        }
       } else {
-        alert("Unknown role, cannot redirect");
+        alert(result.message || "Login failed. Please try again.");
       }
-    } else {
-      // Handle login failure
-      alert(result.message || "Login failed. Please try again.");
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("An error occurred while logging in. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Login error:", error);
-    alert("An error occurred while logging in. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
 
   const benefits = [
