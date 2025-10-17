@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 import {
   Trash2,
   Mail,
@@ -15,16 +16,18 @@ import {
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
-    name: "",      // ✅ matches backend
+    name: "",
     email: "",
     address: "",
     password: "",
-    role: "resident", // ✅ required field
+    role: "resident", // ✅ matches backend
   });
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const baseURL = import.meta.env.SMARTCYCLE_BACKEND_URL || "http://localhost:8080";
+  // ✅ Base backend URL
+  const baseURL =
+    import.meta.env.SMARTCYCLE_BACKEND_URL || "http://localhost:8080";
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -35,7 +38,7 @@ const RegisterPage = () => {
     setIsLoading(true);
 
     try {
-      // Construct payload (include address only if role is resident)
+      // Construct payload
       const payload =
         formData.role === "resident"
           ? formData
@@ -46,25 +49,24 @@ const RegisterPage = () => {
               role: formData.role,
             };
 
-      const response = await fetch(`${baseURL}/api/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      // ✅ Axios POST request
+      const response = await axios.post(`${baseURL}/api/auth/register`, payload, {
+        headers: { "Content-Type": "application/json" },
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
+      // ✅ Handle success
+      if (response.status === 200 || response.status === 201) {
         alert("Registration successful! Redirecting to login...");
         window.location.href = "/v1/login";
-      } else {
-        alert(result.message || "Registration failed. Please try again.");
       }
     } catch (error) {
       console.error("Registration error:", error);
-      alert("An error occurred while registering. Please try again.");
+
+      // ✅ Handle error safely
+      const message =
+        error.response?.data?.message ||
+        "Registration failed. Please try again.";
+      alert(message);
     } finally {
       setIsLoading(false);
     }
@@ -157,8 +159,8 @@ const RegisterPage = () => {
             </p>
           </div>
 
-          {/* ✅ Fixed form */}
           <form onSubmit={handleSubmit} className="space-y-3 mb-4">
+            {/* Name */}
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <User className="w-5 h-5 text-gray-400 group-focus-within:text-green-500" />
@@ -174,6 +176,7 @@ const RegisterPage = () => {
               />
             </div>
 
+            {/* Email */}
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-green-500" />
@@ -189,6 +192,7 @@ const RegisterPage = () => {
               />
             </div>
 
+            {/* Address */}
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <MapPin className="w-5 h-5 text-gray-400 group-focus-within:text-green-500" />
@@ -204,6 +208,7 @@ const RegisterPage = () => {
               />
             </div>
 
+            {/* Password */}
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-green-500" />
@@ -219,6 +224,7 @@ const RegisterPage = () => {
               />
             </div>
 
+            {/* Terms Checkbox */}
             <label className="flex items-start gap-2 mb-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -232,6 +238,7 @@ const RegisterPage = () => {
               </span>
             </label>
 
+            {/* Submit button */}
             <button
               type="submit"
               disabled={isLoading}

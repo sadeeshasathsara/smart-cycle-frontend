@@ -5,59 +5,35 @@ const RequestsTab = () => {
   const [showForm, setShowForm] = useState(false);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     wasteType: "",
     quantity: "",
     preferredPickupDate: "",
   });
 
-  // 👇 Mock data in case API fetch fails
-  const mockRequests = [
-    {
-      requestId: "REQ001",
-      wasteType: "RECYCLABLE",
-      quantity: 5,
-      estimatedFee: 350.0,
-      scheduledDate: new Date().toISOString(),
-      status: "SCHEDULED",
-    },
-    {
-      requestId: "REQ002",
-      wasteType: "HOUSEHOLD_WASTE",
-      quantity: 10,
-      estimatedFee: 500.0,
-      scheduledDate: new Date().toISOString(),
-      status: "PENDING",
-    },
-    {
-      requestId: "REQ003",
-      wasteType: "E_WASTE",
-      quantity: 2,
-      estimatedFee: 200.0,
-      scheduledDate: new Date().toISOString(),
-      status: "COMPLETED",
-    },
-  ];
+  const baseURL = "http://localhost:8080";
 
   // Fetch existing pickup requests for the logged-in resident
   useEffect(() => {
     const fetchRequests = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("/api/collections/my-requests", {
+        const response = await axios.get(`${baseURL}/api/collections/my-requests`, {
           withCredentials: true,
         });
 
-        // Use live API data if available
-        if (response.data?.data?.length > 0) {
-          setRequests(response.data.data);
+        // ✅ CORRECTED: Backend returns array directly
+        if (Array.isArray(response.data)) {
+          setRequests(response.data);
         } else {
-          console.warn("No requests found — loading mock data.");
-          setRequests(mockRequests);
+          console.warn("Unexpected response format:", response.data);
+          setRequests([]);
         }
       } catch (error) {
         console.error("Failed to fetch pickup requests:", error);
-        setRequests(mockRequests); // fallback to mock data
+        alert("Failed to load your requests. Please try again.");
+        setRequests([]);
       } finally {
         setLoading(false);
       }
@@ -74,63 +50,124 @@ const RequestsTab = () => {
   // Submit new request
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!formData.wasteType || !formData.quantity || !formData.preferredPickupDate) {
+      alert("Please fill in all fields");
+      return;
+    }
 
     try {
-      setLoading(true);
+      setSubmitting(true);
 
       const response = await axios.post(
-        "/api/collections/request-pickup",
+        `${baseURL}/api/collections/request-pickup`,
         {
           wasteType: formData.wasteType,
           quantity: parseFloat(formData.quantity),
           preferredPickupDate: formData.preferredPickupDate,
         },
-        { withCredentials: true }
+        { 
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
 
-      if (response.data.success) {
-        setRequests([...requests, response.data.data]);
-      } else {
-        alert("Failed to add request, showing mock success.");
-        const mockNew = {
-          requestId: "REQ" + (requests.length + 1).toString().padStart(3, "0"),
-          wasteType: formData.wasteType,
-          quantity: parseFloat(formData.quantity),
-          estimatedFee: Math.random() * 500 + 100,
-          scheduledDate: formData.preferredPickupDate,
-          status: "SCHEDULED",
-        };
-        setRequests([...requests, mockNew]);
+      // ✅ CORRECTED: Handle 201 Created response
+      if (response.status === 201) {
+        // Refresh the requests list to include the new one
+        const updatedResponse = await axios.get(`${baseURL}/api/collections/my-requests`, {
+          withCredentials: true,
+        });
+        
+        if (Array.isArray(updatedResponse.data)) {
+          setRequests(updatedResponse.data);
+        }
+        
+        setShowForm(false);
+        setFormData({ wasteType: "", quantity: "", preferredPickupDate: "" });
+        alert("Pickup request scheduled successfully!");
       }
-
-      setShowForm(false);
-      setFormData({ wasteType: "", quantity: "", preferredPickupDate: "" });
     } catch (error) {
       console.error("Error submitting pickup request:", error);
-      alert("Network error — added mock request instead.");
-      const mockNew = {
-        requestId: "REQ" + (requests.length + 1).toString().padStart(3, "0"),
-        wasteType: formData.wasteType,
-        quantity: parseFloat(formData.quantity),
-        estimatedFee: Math.random() * 500 + 100,
-        scheduledDate: formData.preferredPickupDate,
-        status: "SCHEDULED",
-      };
-      setRequests([...requests, mockNew]);
+      
+      // ✅ CORRECTED: Handle specific error cases
+      if (error.response?.status === 400) {
+        if (error.response.data?.includes("slot") || error.response.data?.includes("available")) {
+          alert("No available slots for the selected time. Please choose a different date/time.");
+        } else {
+          alert("Invalid request data. Please check your inputs.");
+        }
+      } else {
+        alert("Failed to schedule pickup. Please try again.");
+      }
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  // Delete a request
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`/api/collections/${id}`, { withCredentials: true });
-      setRequests(requests.filter((req) => req.requestId !== id));
-    } catch (error) {
-      console.error("Failed to delete pickup request:", error);
-      setRequests(requests.filter((req) => req.requestId !== id)); // locally remove mock
+  // Cancel a request
+  const handleCancel = async (requestId) => {
+    if (!window.confirm("Are you sure you want to cancel this pickup request?")) {
+      return;
     }
+
+    try {
+      // ✅ CORRECT: Using PATCH /cancel endpoint
+      const response = await axios.patch(
+        `${baseURL}/api/collections/${requestId}/cancel`, 
+        {}, 
+        { withCredentials: true }
+      );
+
+      // ✅ CORRECTED: Handle successful cancellation (200 OK)
+      if (response.status === 200) {
+        // Update the local state to reflect cancellation
+        setRequests(requests.map(req => 
+          req.requestId === requestId 
+            ? { ...req, status: "CANCELLED" }
+            : req
+        ));
+        alert("Request cancelled successfully!");
+      }
+    } catch (error) {
+      console.error("Failed to cancel pickup request:", error);
+      
+      // ✅ CORRECTED: Handle specific error cases
+      if (error.response?.status === 400) {
+        alert("This request can no longer be cancelled as it's already being processed.");
+      } else if (error.response?.status === 404) {
+        alert("Request not found or you don't have permission to cancel it.");
+      } else {
+        alert("Failed to cancel request. Please try again.");
+      }
+    }
+  };
+
+  // Helper function to determine if a request can be cancelled
+  const canCancelRequest = (request) => {
+    // According to API, only requests with status SCHEDULED can be cancelled
+    return request.status === "SCHEDULED";
+  };
+
+  // Format status display with appropriate colors
+  const getStatusDisplay = (status) => {
+    const statusConfig = {
+      SCHEDULED: { color: "bg-blue-100 text-blue-800", text: "Scheduled" },
+      ASSIGNED: { color: "bg-yellow-100 text-yellow-800", text: "Assigned" },
+      EN_ROUTE: { color: "bg-purple-100 text-purple-800", text: "En Route" },
+      COMPLETED: { color: "bg-green-100 text-green-800", text: "Completed" },
+      CANCELLED: { color: "bg-red-100 text-red-800", text: "Cancelled" },
+      PENDING: { color: "bg-gray-100 text-gray-800", text: "Pending" },
+    };
+    
+    const config = statusConfig[status] || statusConfig.PENDING;
+    return (
+      <span className={`px-3 py-1 ${config.color} text-sm rounded-full font-medium`}>
+        {config.text}
+      </span>
+    );
   };
 
   return (
@@ -142,7 +179,8 @@ const RequestsTab = () => {
           </h2>
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+            disabled={loading}
           >
             + Request Pickup
           </button>
@@ -161,10 +199,10 @@ const RequestsTab = () => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full font-medium">
-                    {request.wasteType}
+                    {request.wasteType?.replace(/_/g, ' ') || "Unknown Type"}
                   </span>
                   <span className="text-sm text-slate-500">
-                    {new Date(request.scheduledDate).toLocaleString()}
+                    {request.scheduledDate ? new Date(request.scheduledDate).toLocaleString() : "Date not set"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -172,20 +210,25 @@ const RequestsTab = () => {
                     <p className="text-slate-700 font-medium">
                       Quantity: {request.quantity}
                     </p>
-                    <p className="text-slate-600 text-sm">
-                      Fee: Rs.{request.estimatedFee.toFixed(2)}
-                    </p>
+                    {/* ✅ Only show fee if it exists in response */}
+                    {request.estimatedFee && (
+                      <p className="text-slate-600 text-sm">
+                        Fee: Rs.{request.estimatedFee.toFixed(2)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium">
-                      {request.status}
-                    </span>
-                    <button
-                      onClick={() => handleDelete(request.requestId)}
-                      className="text-red-500 hover:text-red-700 font-medium"
-                    >
-                      Delete
-                    </button>
+                    {getStatusDisplay(request.status)}
+                    {/* ✅ Only show cancel button for cancellable requests */}
+                    {canCancelRequest(request) && (
+                      <button
+                        onClick={() => handleCancel(request.requestId)}
+                        className="text-red-500 hover:text-red-700 font-medium disabled:text-gray-400"
+                        disabled={submitting}
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -193,7 +236,7 @@ const RequestsTab = () => {
           </div>
         ) : (
           <p className="text-center text-slate-500">
-            No pickup requests scheduled.
+            No pickup requests found.
           </p>
         )}
       </div>
@@ -208,7 +251,7 @@ const RequestsTab = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Waste Type
+                  Waste Type *
                 </label>
                 <select
                   name="wasteType"
@@ -218,39 +261,42 @@ const RequestsTab = () => {
                   required
                 >
                   <option value="">Select Waste Type</option>
+                  <option value="BULK_ITEMS">Bulk Items</option>
                   <option value="RECYCLABLE">Recyclable</option>
                   <option value="HOUSEHOLD_WASTE">Household Waste</option>
                   <option value="ORGANIC_WASTE">Organic Waste</option>
                   <option value="E_WASTE">E-Waste</option>
-                  <option value="BULK_ITEMS">Bulk Items</option>
                   <option value="HAZARDOUS">Hazardous</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Quantity
+                  Quantity *
                 </label>
                 <input
                   type="number"
                   name="quantity"
                   value={formData.quantity}
                   onChange={handleInputChange}
+                  min="0.1"
+                  step="0.1"
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter quantity (kg / items)"
+                  placeholder="Enter quantity"
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Preferred Pickup Date & Time
+                  Preferred Pickup Date & Time *
                 </label>
                 <input
                   type="datetime-local"
                   name="preferredPickupDate"
                   value={formData.preferredPickupDate}
                   onChange={handleInputChange}
+                  min={new Date().toISOString().slice(0, 16)}
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
@@ -261,15 +307,16 @@ const RequestsTab = () => {
                   type="button"
                   onClick={() => setShowForm(false)}
                   className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
                 >
-                  {loading ? "Submitting..." : "Submit Request"}
+                  {submitting ? "Submitting..." : "Submit Request"}
                 </button>
               </div>
             </form>

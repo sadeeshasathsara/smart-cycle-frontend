@@ -19,6 +19,7 @@ import {
   Package,
   DollarSign,
 } from "lucide-react";
+import RequestsTab from "../../components/resident.component/request.component";
 
 const residentData = {
   name: "John Anderson",
@@ -481,89 +482,7 @@ const NotificationsTab = () => {
   );
 };
 
-const RequestsTab = () => {
-  const [showForm, setShowForm] = useState(false);
-  const getColor = (s) => {
-    if (s === "Scheduled") return "bg-blue-100 text-blue-800";
-    if (s === "Resolved") return "bg-green-100 text-green-800";
-    return "bg-yellow-100 text-yellow-800";
-  };
-
-  return (
-    <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Service Requests</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 shadow-md font-medium"
-        >
-          {showForm ? "View Requests" : "+ New Request"}
-        </button>
-      </div>
-      {showForm ? (
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-semibold text-gray-700 mb-2 block">
-              Type
-            </label>
-            <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-              <option>Bulk Collection</option>
-              <option>Missed Collection</option>
-              <option>Special Pickup</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-semibold text-gray-700 mb-2 block">
-              Subject
-            </label>
-            <input
-              type="text"
-              placeholder="Brief description"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-semibold text-gray-700 mb-2 block">
-              Description
-            </label>
-            <textarea
-              rows="4"
-              placeholder="Details"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-            ></textarea>
-          </div>
-          <button className="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold shadow-md">
-            Submit
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {requestsData.map((r) => (
-            <div
-              key={r.id}
-              className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-gray-50"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-sm rounded-full font-semibold">
-                  {r.type}
-                </span>
-                <span
-                  className={`px-3 py-1 text-sm rounded-full font-semibold ${getColor(
-                    r.status
-                  )}`}
-                >
-                  {r.status}
-                </span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-1">{r.subject}</h3>
-              <p className="text-sm text-gray-500">Submitted: {r.date}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+<RequestsTab />;
 
 const PaymentsTab = () => (
   <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
