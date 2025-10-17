@@ -52,6 +52,10 @@ const LoginPage = () => {
           window.location.href = "/v1/resident";
         } else if (result.data.role === "personnel") {
           window.location.href = "/v1/personnel";
+        } else if (result.data.role === "admin") {
+          window.location.href = "/v1/admin";
+        } else if (result.data.role === "driver") {
+          window.location.href = "/v1/driver";
         } else {
           alert("Unknown role, cannot redirect");
         }
