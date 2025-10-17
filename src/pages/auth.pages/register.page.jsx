@@ -15,20 +15,59 @@ import {
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
-    fullName: "",
+    name: "",      // ✅ matches backend
     email: "",
     address: "",
     password: "",
+    role: "resident", // ✅ required field
   });
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const baseURL = import.meta.env.SMARTCYCLE_BACKEND_URL || "http://localhost:8080";
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Registered Resident:", formData);
-    alert("Registration successful! Redirecting to login...");
+    setIsLoading(true);
+
+    try {
+      // Construct payload (include address only if role is resident)
+      const payload =
+        formData.role === "resident"
+          ? formData
+          : {
+              name: formData.name,
+              email: formData.email,
+              password: formData.password,
+              role: formData.role,
+            };
+
+      const response = await fetch(`${baseURL}/api/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Registration successful! Redirecting to login...");
+        window.location.href = "/v1/login";
+      } else {
+        alert(result.message || "Registration failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      alert("An error occurred while registering. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const benefits = [
@@ -48,7 +87,6 @@ const RegisterPage = () => {
     <div className="flex min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-green-100">
       {/* Left Side - Branding & Info */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-green-600 via-emerald-600 to-teal-700 p-12 flex-col justify-between">
-        {/* Decorative circles */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full -mr-48 -mt-48"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-white opacity-5 rounded-full -ml-40 -mb-40"></div>
 
@@ -75,7 +113,6 @@ const RegisterPage = () => {
             through smart waste management.
           </p>
 
-          {/* Benefits Grid */}
           <div className="grid grid-cols-2 gap-4 mb-12">
             {benefits.map((benefit, idx) => (
               <div
@@ -88,7 +125,6 @@ const RegisterPage = () => {
             ))}
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-6">
             {stats.map((stat, idx) => (
               <div key={idx} className="text-center">
@@ -101,7 +137,6 @@ const RegisterPage = () => {
           </div>
         </div>
 
-        {/* Bottom decoration */}
         <div className="relative z-10 flex items-center gap-8 text-green-100">
           <TreePine className="w-16 h-16 opacity-30" />
           <Droplets className="w-12 h-12 opacity-20" />
@@ -111,20 +146,7 @@ const RegisterPage = () => {
 
       {/* Right Side - Registration Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 relative">
-        {/* Mobile logo */}
-        <div className="lg:hidden absolute top-4 left-4 flex items-center gap-2 z-20">
-          <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-2 rounded-xl">
-            <Recycle className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-gray-800 text-xl font-bold">EcoWaste</span>
-        </div>
-
-        {/* Floating decorative elements */}
-        <div className="absolute top-10 right-6 w-24 h-24 bg-green-200 rounded-full opacity-20 blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 left-6 w-32 h-32 bg-teal-200 rounded-full opacity-20 blur-3xl animate-pulse"></div>
-
         <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md border border-gray-100">
-          {/* Header */}
           <div className="text-center mb-4">
             <div className="inline-flex bg-gradient-to-br from-green-500 to-emerald-600 p-3 rounded-2xl shadow-lg mb-3">
               <Recycle className="w-8 h-8 text-white" />
@@ -135,32 +157,32 @@ const RegisterPage = () => {
             </p>
           </div>
 
-          {/* Form Inputs */}
-          <div className="space-y-3 mb-4">
+          {/* ✅ Fixed form */}
+          <form onSubmit={handleSubmit} className="space-y-3 mb-4">
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <User className="w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+                <User className="w-5 h-5 text-gray-400 group-focus-within:text-green-500" />
               </div>
               <input
                 type="text"
-                name="fullName"
+                name="name"
                 placeholder="Full Name"
-                className="w-full pl-12 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full pl-12 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
                 onChange={handleChange}
-                value={formData.fullName}
+                value={formData.name}
                 required
               />
             </div>
 
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+                <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-green-500" />
               </div>
               <input
                 type="email"
                 name="email"
                 placeholder="Email Address"
-                className="w-full pl-12 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full pl-12 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
                 onChange={handleChange}
                 value={formData.email}
                 required
@@ -169,13 +191,13 @@ const RegisterPage = () => {
 
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <MapPin className="w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+                <MapPin className="w-5 h-5 text-gray-400 group-focus-within:text-green-500" />
               </div>
               <input
                 type="text"
                 name="address"
                 placeholder="Residential Address"
-                className="w-full pl-12 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full pl-12 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
                 onChange={handleChange}
                 value={formData.address}
                 required
@@ -184,60 +206,63 @@ const RegisterPage = () => {
 
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+                <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-green-500" />
               </div>
               <input
                 type="password"
                 name="password"
                 placeholder="Create Password"
-                className="w-full pl-12 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full pl-12 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
                 onChange={handleChange}
                 value={formData.password}
                 required
               />
             </div>
-            <div className="h-4 mt-1">
-              <p className="text-xs text-gray-500 ml-1">Min. 8 characters</p>
-            </div>
-          </div>
 
-          {/* Terms checkbox */}
-          <label className="flex items-start gap-2 mb-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              className="mt-0.5 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-              required
-            />
-            <span className="text-xs text-gray-600 group-hover:text-gray-800 transition-colors">
-              I agree to the{" "}
-              <span className="text-green-600 font-medium">Terms</span> and{" "}
-              <span className="text-green-600 font-medium">Privacy Policy</span>
-            </span>
-          </label>
+            <label className="flex items-start gap-2 mb-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                className="mt-0.5 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                required
+              />
+              <span className="text-xs text-gray-600">
+                I agree to the{" "}
+                <span className="text-green-600 font-medium">Terms</span> and{" "}
+                <span className="text-green-600 font-medium">Privacy Policy</span>
+              </span>
+            </label>
 
-          {/* Submit Button */}
-          <button
-            onClick={handleSubmit}
-            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2.5 rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2 text-sm mb-3"
-          >
-            <Trash2 className="w-4 h-4" />
-            Create Account
-          </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2.5 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-sm"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Creating account...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Create Account
+                </>
+              )}
+            </button>
+          </form>
 
-          {/* Login Link */}
           <div className="text-center">
             <span className="text-gray-500 text-sm">
               Already registered?{" "}
               <a
                 href="/v1/login"
-                className="text-green-600 font-medium hover:underline hover:text-green-700 transition-colors"
+                className="text-green-600 font-medium hover:underline hover:text-green-700"
               >
                 Sign in
               </a>
             </span>
           </div>
 
-          {/* Footer */}
           <div className="mt-3 pt-3 border-t border-gray-100">
             <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
               <Shield className="w-3 h-3" />

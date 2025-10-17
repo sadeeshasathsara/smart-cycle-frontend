@@ -6,7 +6,8 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e) => {
+
+  /* const handleLogin = (e) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -16,7 +17,50 @@ const LoginPage = () => {
       setIsLoading(false);
       window.location.href = "/v1/resident";
     }, 1500);
-  };
+  }; */
+
+  const handleLogin = async (e) => {
+  const baseURL = import.meta.env.SMARTCYCLE_BACKEND_URL || "http://localhost:8080";
+  e.preventDefault();
+  setIsLoading(true);
+
+  try {
+    const response = await fetch(`${baseURL}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      console.log("Login successful:", result.data);
+
+      // Optionally save user data to localStorage/sessionStorage
+      localStorage.setItem("user", JSON.stringify(result.data));
+
+      // Redirect based on role
+      if (result.data.role === "resident") {
+        window.location.href = "/v1/resident";
+      } else if (result.data.role === "personnel") {
+        window.location.href = "/v1/personnel";
+      } else {
+        alert("Unknown role, cannot redirect");
+      }
+    } else {
+      // Handle login failure
+      alert(result.message || "Login failed. Please try again.");
+    }
+  } catch (error) {
+    console.error("Login error:", error);
+    alert("An error occurred while logging in. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const benefits = [
     { icon: <Clock className="w-5 h-5" />, text: "Scheduled Pickups" },
