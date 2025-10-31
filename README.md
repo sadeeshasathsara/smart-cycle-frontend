@@ -1,5 +1,8 @@
 # 🚴 Smart Cycle - Frontend
 
+<img width="1192" height="631" alt="image" src="https://github.com/user-attachments/assets/35fdbee7-34a5-4db6-ab5f-a20d9f0d2124" />
+
+
 <div align="center">
   <img src="https://img.shields.io/badge/React-19.1.1-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Vite-7.1.7-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
@@ -9,7 +12,6 @@
 
 <br />
 
-<img width="1192" height="631" alt="image" src="https://github.com/user-attachments/assets/35fdbee7-34a5-4db6-ab5f-a20d9f0d2124" />
 
 
 A modern, responsive web application for Smart Cycle - an intelligent waste management and recycling system. Built with React and Vite, this frontend provides an intuitive interface for residents, drivers, personnel, and administrators to manage waste collection schedules and recycling operations efficiently.
