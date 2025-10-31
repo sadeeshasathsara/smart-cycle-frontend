@@ -184,35 +184,54 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, closeSidebar }) => {
 };
 
 const DashboardTab = ({ residentData, notificationsData }) => {
-  const [activeCollection, setActiveCollection] = useState(null);
-  const [loadingCollection, setLoadingCollection] = useState(true);
+  const [activeCollections, setActiveCollections] = useState([]);
+  const [loadingCollections, setLoadingCollections] = useState(true);
+  const [balance, setBalance] = useState(null);
+  const [loadingBalance, setLoadingBalance] = useState(true);
 
   useEffect(() => {
-    fetchActiveCollection();
+    fetchActiveCollections();
+    fetchBalance();
   }, []);
 
-  const fetchActiveCollection = async () => {
+  const fetchActiveCollections = async () => {
     try {
       const res = await fetch('http://localhost:8080/api/collections/status/active', {
         credentials: 'include'
       });
 
       if (res.status === 204) {
-        // No active collections
-        setActiveCollection(null);
+        setActiveCollections([]);
       } else if (res.ok) {
         const data = await res.json();
-        setActiveCollection(data);
+        setActiveCollections(data || []);
       }
     } catch (error) {
-      console.error("Error fetching active collection:", error);
+      console.error("Error fetching active collections:", error);
     } finally {
-      setLoadingCollection(false);
+      setLoadingCollections(false);
+    }
+  };
+
+  const fetchBalance = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/api/payments/balance', {
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setBalance(data);
+      }
+    } catch (error) {
+      console.error("Error fetching balance:", error);
+    } finally {
+      setLoadingBalance(false);
     }
   };
 
   const formatWasteType = (type) => {
-    return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    return type?.replace(/_/g, ' ')?.toLowerCase()?.replace(/\b\w/g, c => c.toUpperCase());
   };
 
   const getStatusColor = (status) => {
@@ -268,6 +287,10 @@ const DashboardTab = ({ residentData, notificationsData }) => {
     }
   };
 
+  const nextCollection = activeCollections.length > 0
+    ? activeCollections.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))[0]
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
@@ -278,28 +301,28 @@ const DashboardTab = ({ residentData, notificationsData }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Active Collection Card */}
+        {/* Next Collection Card */}
         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-          {loadingCollection ? (
+          {loadingCollections ? (
             <div className="flex items-center justify-center h-32">
               <p className="text-gray-500 text-sm">Loading...</p>
             </div>
-          ) : activeCollection ? (
+          ) : nextCollection ? (
             <>
               <div className="flex items-center justify-between mb-4">
                 <div className="bg-emerald-100 p-3 rounded-lg">
                   <Calendar className="w-6 h-6 text-emerald-600" />
                 </div>
-                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${getStatusColor(activeCollection.status)}`}>
-                  {getStatusText(activeCollection.status)}
+                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${getStatusColor(nextCollection.status)}`}>
+                  {getStatusText(nextCollection.status)}
                 </span>
               </div>
               <p className="text-gray-600 text-sm mb-1">Next Collection</p>
               <p className="text-2xl font-bold text-gray-900">
-                {formatScheduledDate(activeCollection.scheduledDate).day}
+                {formatScheduledDate(nextCollection.scheduledDate).day}
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                {formatScheduledDate(activeCollection.scheduledDate).time} - {formatWasteType(activeCollection.wasteType)}
+                {formatScheduledDate(nextCollection.scheduledDate).time} - {formatWasteType(nextCollection.wasteType)}
               </p>
             </>
           ) : (
@@ -316,83 +339,105 @@ const DashboardTab = ({ residentData, notificationsData }) => {
           )}
         </div>
 
-        {/* Total Requests Card */}
+        {/* Total Collections Card */}
         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
           <div className="bg-blue-100 p-3 rounded-lg w-fit mb-4">
             <Package className="w-6 h-6 text-blue-600" />
           </div>
-          <p className="text-gray-600 text-sm mb-1">Total Requests</p>
-          <p className="text-2xl font-bold text-gray-900">8</p>
-          <p className="text-sm text-gray-500 mt-1">2 pending, 6 completed</p>
+          <p className="text-gray-600 text-sm mb-1">Active Collections</p>
+          <p className="text-2xl font-bold text-gray-900">{activeCollections.length}</p>
+          <p className="text-sm text-gray-500 mt-1">Scheduled pickups</p>
         </div>
 
         {/* Current Balance Card */}
         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-purple-100 p-3 rounded-lg">
-              <DollarSign className="w-6 h-6 text-purple-600" />
+          {loadingBalance ? (
+            <div className="flex items-center justify-center h-32">
+              <p className="text-gray-500 text-sm">Loading...</p>
             </div>
-            <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-              Paid
-            </span>
-          </div>
-          <p className="text-gray-600 text-sm mb-1">Current Balance</p>
-          <p className="text-2xl font-bold text-gray-900">$0.00</p>
-          <p className="text-sm text-gray-500 mt-1">All payments up to date</p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div className="bg-purple-100 p-3 rounded-lg">
+                  <DollarSign className="w-6 h-6 text-purple-600" />
+                </div>
+                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${balance?.totalOutstanding > 0
+                  ? 'text-red-600 bg-red-50'
+                  : 'text-green-600 bg-green-50'
+                  }`}>
+                  {balance?.totalOutstanding > 0 ? 'Pending' : 'Paid'}
+                </span>
+              </div>
+              <p className="text-gray-600 text-sm mb-1">Current Balance</p>
+              <p className="text-2xl font-bold text-gray-900">
+                Rs. {balance?.totalOutstanding?.toFixed(2) || '0.00'}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {balance?.unpaidRequests?.length > 0
+                  ? `${balance.unpaidRequests.length} unpaid request${balance.unpaidRequests.length > 1 ? 's' : ''}`
+                  : 'All payments up to date'}
+              </p>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Recent Activity Section */}
+      {/* All Active Collections */}
       <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h3>
-        <div className="space-y-4">
-          {/* Active Collection in Recent Activity */}
-          {activeCollection && (
-            <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-200">
-              <div className="bg-emerald-100 p-2 rounded-lg">
-                <Truck className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-semibold text-gray-900">Active Collection</h4>
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getStatusColor(activeCollection.status)}`}>
-                    {getStatusText(activeCollection.status)}
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-gray-900">Active Collections</h3>
+          <span className="text-sm text-gray-500">{activeCollections.length} scheduled</span>
+        </div>
+
+        {loadingCollections ? (
+          <div className="flex items-center justify-center h-32">
+            <p className="text-gray-500 text-sm">Loading collections...</p>
+          </div>
+        ) : activeCollections.length > 0 ? (
+          <div className="space-y-3">
+            {activeCollections
+              .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
+              .map((collection) => (
+                <div
+                  key={collection.requestId}
+                  className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-200 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="bg-emerald-100 p-2 rounded-lg">
+                      <Truck className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-gray-900">
+                          {formatWasteType(collection.wasteType)}
+                        </h4>
+                        <span className="text-xs text-gray-500">
+                          #{collection.requestId}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {formatScheduledDate(collection.scheduledDate).day} at {formatScheduledDate(collection.scheduledDate).time}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${getStatusColor(collection.status)}`}>
+                    {getStatusText(collection.status)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600">
-                  {formatWasteType(activeCollection.wasteType)} collection {
-                    activeCollection.status === 'EN_ROUTE'
-                      ? 'is on the way'
-                      : activeCollection.status === 'ASSIGNED'
-                        ? 'has been assigned to a collector'
-                        : 'is scheduled'
-                  }
-                </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  Scheduled for {formatScheduledDate(activeCollection.scheduledDate).day} at {formatScheduledDate(activeCollection.scheduledDate).time}
-                </p>
-              </div>
+              ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="bg-gray-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <Calendar className="w-8 h-8 text-gray-400" />
             </div>
-          )}
-
-          {/* Notifications */}
-          {notificationsData?.slice(0, 3).map((n) => (
-            <div
-              key={n.id}
-              className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100"
-            >
-              <div className="bg-blue-100 p-2 rounded-lg">
-                <Bell className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-semibold text-gray-900 mb-1">{n.title}</h4>
-                <p className="text-sm text-gray-600">{n.message}</p>
-                <p className="text-xs text-gray-500 mt-2">{n.date}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            <p className="text-gray-600 font-medium">No active collections</p>
+            <p className="text-sm text-gray-500 mt-1">Schedule a new collection to get started</p>
+          </div>
+        )}
       </div>
+
+
     </div>
   );
 };

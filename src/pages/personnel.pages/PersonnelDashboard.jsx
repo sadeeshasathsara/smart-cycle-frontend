@@ -20,6 +20,8 @@ import {
   Search,
   Bell,
   Trash2,
+  Weight,
+  QrCode,
 } from "lucide-react";
 import ScheduleManagement from "../ScheduleManagement";
 
@@ -306,6 +308,11 @@ const ScheduleTab = () => {
       );
 
       alert(`Route started! ${result.data.updatedRequestsCount} requests are now EN_ROUTE.`);
+
+      // Refresh pickup requests if this schedule is selected
+      if (selectedSchedule?.id === scheduleId) {
+        fetchPickupRequests(scheduleId);
+      }
     } catch (err) {
       alert(`Error starting route: ${err.message}`);
       console.error('Error starting route:', err);
@@ -330,7 +337,7 @@ const ScheduleTab = () => {
         requestBody.actualWeight = parseFloat(actualWeight);
       }
 
-      const response = await fetch(`${BASE_URL}/api/collections/${selectedRequest.id}/complete`, {
+      const response = await fetch(`${BASE_URL}/api/collections/${selectedRequest.requestId}/complete`, {
         method: 'PATCH',
         credentials: 'include',
         headers: {
@@ -348,13 +355,13 @@ const ScheduleTab = () => {
 
       setPickupRequests(prevRequests =>
         prevRequests.map(req =>
-          req.id === selectedRequest.id
+          req.requestId === selectedRequest.requestId
             ? { ...req, status: 'COMPLETED' }
             : req
         )
       );
 
-      alert(`Pickup completed successfully! ${result.data.quantity} kg collected.`);
+      alert(`Pickup completed successfully! ${result.data?.quantity || actualWeight || 'N/A'} kg collected.`);
       closeCompleteModal();
     } catch (err) {
       alert(`Error completing pickup: ${err.message}`);
@@ -368,7 +375,7 @@ const ScheduleTab = () => {
     setSelectedRequest(request);
     setShowCompleteModal(true);
     setBinTagId('');
-    setActualWeight('');
+    setActualWeight(request.quantity?.toString() || '');
   };
 
   const closeCompleteModal = () => {
@@ -378,10 +385,38 @@ const ScheduleTab = () => {
     setActualWeight('');
   };
 
+  const formatWasteType = (type) => {
+    return type?.replace(/_/g, ' ')?.toLowerCase()?.replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) {
+      const now = new Date();
+      return {
+        date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        display: 'Today'
+      };
+    }
+
+    const date = new Date(dateString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    return {
+      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      time: date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+      display: isToday ? 'Today' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    };
+  };
+
   const getStatusColor = (status) => {
     switch (status?.toUpperCase()) {
       case "PENDING":
+      case "SCHEDULED":
         return "bg-blue-100 text-blue-800";
+      case "ASSIGNED":
+        return "bg-purple-100 text-purple-800";
       case "IN_PROGRESS":
       case "EN_ROUTE":
         return "bg-yellow-100 text-yellow-800";
@@ -396,6 +431,10 @@ const ScheduleTab = () => {
     switch (status?.toUpperCase()) {
       case "PENDING":
         return "Pending";
+      case "SCHEDULED":
+        return "Scheduled";
+      case "ASSIGNED":
+        return "Assigned";
       case "IN_PROGRESS":
         return "In Progress";
       case "EN_ROUTE":
@@ -465,7 +504,7 @@ const ScheduleTab = () => {
               setSelectedSchedule(null);
               setPickupRequests([]);
             }}
-            className="mb-4 px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center gap-2"
+            className="mb-4 px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center gap-2 transition-colors"
           >
             ← Back to Schedules
           </button>
@@ -474,9 +513,16 @@ const ScheduleTab = () => {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               {selectedSchedule.area || selectedSchedule.route || `Schedule #${selectedSchedule.id}`}
             </h2>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedSchedule.status)}`}>
-              {getStatusDisplay(selectedSchedule.status)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedSchedule.status)}`}>
+                {getStatusDisplay(selectedSchedule.status)}
+              </span>
+              {pickupRequests.length > 0 && (
+                <span className="text-sm text-gray-600">
+                  {pickupRequests.length} pickup{pickupRequests.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -486,65 +532,87 @@ const ScheduleTab = () => {
                 <p className="text-gray-500 text-lg">No pickup requests found</p>
               </div>
             ) : (
-              pickupRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                          {getStatusDisplay(request.status)}
-                        </span>
-                        <span className="text-sm font-semibold text-purple-600">
-                          {request.wasteType?.replace(/_/g, ' ')}
-                        </span>
+              pickupRequests.map((request) => {
+                const dateInfo = formatDate(request.scheduledDate);
+                return (
+                  <div
+                    key={request.requestId}
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                            {getStatusDisplay(request.status)}
+                          </span>
+                          <span className="text-sm font-semibold text-purple-600">
+                            {formatWasteType(request.wasteType)}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            #{request.requestId}
+                          </span>
+                        </div>
+                        <h3 className="font-semibold text-lg text-gray-900 mb-2">
+                          {request.residentName || `Request #${request.requestId}`}
+                        </h3>
+                        {request.address && (
+                          <p className="text-gray-600 flex items-center gap-2 mb-1">
+                            <MapPin className="w-4 h-4" />
+                            {request.address}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2">
+                          {request.quantity && (
+                            <p className="text-sm text-gray-600 flex items-center gap-2">
+                              <Weight className="w-4 h-4" />
+                              Estimated: {request.quantity} kg
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-600 flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            {dateInfo.display} at {dateInfo.time}
+                          </p>
+                        </div>
                       </div>
-                      <h3 className="font-semibold text-lg text-gray-900">
-                        {request.residentName || `Request #${request.id}`}
-                      </h3>
-                      <p className="text-gray-600 flex items-center gap-2 mt-1">
-                        <MapPin className="w-4 h-4" />
-                        {request.address || 'Address not provided'}
-                      </p>
-                      {request.quantity && (
-                        <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
-                          <Weight className="w-4 h-4" />
-                          Estimated: {request.quantity} kg
-                        </p>
-                      )}
                     </div>
+
+                    {request.status === "ASSIGNED" && (
+                      <div className="flex gap-2 pt-3 border-t border-gray-200">
+                        <div className="flex-1 px-4 py-2 bg-purple-50 text-purple-800 rounded-lg text-center font-medium text-sm">
+                          Waiting for route to start
+                        </div>
+                      </div>
+                    )}
+
+                    {request.status === "EN_ROUTE" && (
+                      <div className="flex gap-2 pt-3 border-t border-gray-200">
+                        <button
+                          onClick={() => openCompleteModal(request)}
+                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Complete Pickup
+                        </button>
+                      </div>
+                    )}
+
+                    {request.status === "COMPLETED" && (
+                      <div className="flex gap-2 pt-3 border-t border-gray-200">
+                        <div className="flex-1 px-4 py-2 bg-green-50 text-green-800 rounded-lg text-center font-medium flex items-center justify-center gap-2">
+                          <CheckCircle className="w-4 h-4" />
+                          Completed
+                        </div>
+                      </div>
+                    )}
                   </div>
-
-                  {request.status === "EN_ROUTE" && (
-                    <div className="flex gap-2 pt-3 border-t border-gray-200">
-                      <button
-                        onClick={() => openCompleteModal(request)}
-                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Complete Pickup
-                      </button>
-                    </div>
-                  )}
-
-                  {request.status === "COMPLETED" && (
-                    <div className="flex gap-2 pt-3 border-t border-gray-200">
-                      <div className="flex-1 px-4 py-2 bg-green-50 text-green-800 rounded-lg text-center font-medium flex items-center justify-center gap-2">
-                        <CheckCircle className="w-4 h-4" />
-                        Completed
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
 
         {showCompleteModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-gray-900">Complete Pickup</h3>
@@ -594,10 +662,10 @@ const ScheduleTab = () => {
 
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">
-                    <span className="font-semibold">Resident:</span> {selectedRequest?.residentName || 'N/A'}
+                    <span className="font-semibold">Request ID:</span> #{selectedRequest?.requestId}
                   </p>
                   <p className="text-sm text-gray-600 mb-1">
-                    <span className="font-semibold">Waste Type:</span> {selectedRequest?.wasteType?.replace(/_/g, ' ') || 'N/A'}
+                    <span className="font-semibold">Waste Type:</span> {formatWasteType(selectedRequest?.wasteType) || 'N/A'}
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-semibold">Estimated Weight:</span> {selectedRequest?.quantity || 'N/A'} kg
@@ -777,7 +845,10 @@ const ScheduleTab = () => {
                           Starting...
                         </>
                       ) : (
-                        'Start Route'
+                        <>
+                          <Truck className="w-4 h-4" />
+                          Start Route
+                        </>
                       )}
                     </button>
                   )}
