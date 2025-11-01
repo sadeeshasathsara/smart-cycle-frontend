@@ -1,7 +1,6 @@
 # 🚴 Smart Cycle - Frontend
 
-<img width="1192" height="631" alt="image" src="https://github.com/user-attachments/assets/35fdbee7-34a5-4db6-ab5f-a20d9f0d2124" />
-
+<img width="1192" height="631" alt="508302677-35fdbee7-34a5-4db6-ab5f-a20d9f0d2124" src="https://github.com/user-attachments/assets/a60c3d27-473e-4ec5-b1f6-9a56bf6d9e38" />
 
 <div align="center">
   <img src="https://img.shields.io/badge/React-19.1.1-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React" />
